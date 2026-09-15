@@ -90,3 +90,65 @@ test('仅主动开启后保存；关闭开关删除数据；损坏数据安全�
   assert.equal(restore(storage), null);
   assert.equal(persist({ setItem() { throw new Error('Quota exceeded'); } }, input, true), false);
 });
+
+test('生活费从第二部分原始余额扣除；目标扣减已有存款', () => {
+  const a = calculate({ net: '10000', expenses: expenses(4000), livingExpenses: expenses(2000), target: '12000', savings: '2000' });
+  assert.equal(a.balanceCents, 600000);
+  assert.equal(a.monthlySavingsCents, 400000);
+  assert.equal(a.goalGapCents, 1000000);
+  assert.equal(a.savingMonths, 2.5);
+  assert.equal(a.fullMonths, 3);
+  assert.equal(a.equivalentWorkDays, 55);
+});
+
+test('第三部分不把第二部分赤字截零；无结余时不生成期限', () => {
+  const a = calculate({ net: '5000', expenses: expenses(5600), livingExpenses: expenses(500), target: '1000' });
+  assert.equal(a.balanceCents, -60000);
+  assert.equal(a.monthlySavingsCents, -110000);
+  assert.equal(a.savingMonths, null);
+  assert.equal(a.fullMonths, null);
+  assert.equal(a.equivalentWorkDays, null);
+  assert.equal(calculate({ net: '5000', expenses: expenses(3000), livingExpenses: expenses(2000), target: '1000' }).savingMonths, null);
+});
+
+test('折算工作日避免浮点误差把7天变成8天', () => {
+  const a = calculate({ net: '2500', days: '25', target: '700' });
+  assert.equal(a.equivalentWorkDays, 7);
+  assert.equal(calculate({ net: '0', target: '0' }).equivalentWorkDays, 0);
+});
+
+test('已达到目标无需额外积累；空目标没有期限；小额目标至少一个存入月', () => {
+  const reached = calculate({ net: '0', target: '10000', savings: '12000' });
+  assert.equal(reached.goalGapCents, 0);
+  assert.equal(reached.goalReached, true);
+  assert.equal(reached.fullMonths, 0);
+  assert.equal(calculate({ net: '10000', target: '' }).goalGapCents, null);
+  const small = calculate({ net: '4000', target: '100' });
+  assert.equal(small.fullMonths, 1);
+  assert.equal(small.equivalentWorkDays, 1);
+});
+
+test('生活费或目标非法只影响相关结果；月数不依赖工作天数', () => {
+  const invalidLiving = calculate({ net: '8000', livingExpenses: expenses('-10'), target: '10000' });
+  assert.equal(invalidLiving.balanceCents, 800000);
+  assert.equal(invalidLiving.monthlySavingsCents, null);
+  const invalidTarget = calculate({ net: '8000', target: '-1' });
+  assert.equal(invalidTarget.monthlySavingsCents, 800000);
+  assert.equal(invalidTarget.goalGapCents, null);
+  const invalidDays = calculate({ net: '8000', days: '0', target: '16000' });
+  assert.equal(invalidDays.fullMonths, 2);
+  assert.equal(invalidDays.equivalentWorkDays, null);
+});
+
+test('本地保存含生活费、目标和已有存款；旧数据可继续读取', () => {
+  let value;
+  const storage = { getItem: () => value, setItem: (key, data) => { value = data; }, removeItem: () => { value = null; } };
+  persist(storage, { net: '10000', livingExpenses: expenses(1500), target: '20000', savings: '5000' }, true);
+  assert.equal(restore(storage).livingExpenses[0].amount, '1500');
+  assert.equal(restore(storage).target, '20000');
+  assert.equal(restore(storage).savings, '5000');
+  value = JSON.stringify({ version: 1, remember: true, input: { net: '10000', expenses: [] } });
+  assert.equal(restore(storage).net, '10000');
+  assert.equal(restore(storage).livingExpenses[0].name, '伙食费');
+  assert.equal(restore(storage).target, '');
+});

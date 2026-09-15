@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f4eee3">
-  <meta name="description" content="输入到手月薪，立即按 22 天、每天 8 小时算时薪。自由调整工作、通勤和午休时间，扣除房租等支出，看看每月还能安排多少钱。">
+  <meta name="description" content="输入到手月薪，按 22 天、每天 8 小时算时薪。扣除固定支出和生活费，填入已有存款和目标，算算还要工作多久。">
   <title>工资与生活 · 算清时间，也留一点给自己</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
@@ -50,7 +50,30 @@
                 <div class="expense-table-head" aria-hidden="true"><span>支出项目</span><span>每月金额</span></div>
                 <div id="expense-rows"></div>
                 <button id="add-expense" class="add-button" type="button"><span aria-hidden="true">＋</span> 添加一项支出</button>
-                <p class="field-hint">所有支出按月填写。想预留餐费、存款，也可以自己添加。</p>
+                <p class="field-hint">所有支出按月填写。伙食等其他生活开支可以填在第三部分，同一笔支出只填一次。</p>
+              </div>
+            </details>
+          </section>
+          <section class="paper living-paper" aria-labelledby="living-title">
+            <details id="living-details" open>
+              <summary class="section-heading"><span class="section-number">03</span><div><h2 id="living-title">生活开支与存钱目标</h2><p>再减去日常开销，算算距离目标还有多久。</p></div><span class="chevron" aria-hidden="true"></span></summary>
+              <div class="expenses-content">
+                <div class="expense-table-head" aria-hidden="true"><span>其他生活开支</span><span>每月金额</span></div>
+                <div id="living-rows"></div>
+                <button id="add-living" class="add-button" type="button"><span aria-hidden="true">＋</span> 添加生活开支</button>
+                <p class="field-hint">伙食、日用品、娱乐等按月填写。已在第二部分填写的费用，不需要重复填写。</p>
+                <div class="living-subtotal"><span>扣完生活费，每月预计可存</span><strong id="living-subtotal">—</strong></div>
+                <p id="living-subtotal-note" class="field-hint">第二部分月度余额 − 其他生活开支</p>
+                <div class="goal-fields">
+                  <div class="field"><label for="target">目标总存款</label><div class="input-shell"><span aria-hidden="true">¥</span><input id="target" inputmode="decimal" autocomplete="off" placeholder="想攒到多少钱" maxlength="16" aria-describedby="target-error"><span>元</span></div><p class="error" id="target-error"></p></div>
+                  <div class="field"><label for="savings">已有存款 <span>选填，默认 0 元</span></label><div class="input-shell"><span aria-hidden="true">¥</span><input id="savings" inputmode="decimal" autocomplete="off" placeholder="现在已经存下的" maxlength="16" aria-describedby="savings-error"><span>元</span></div><p class="error" id="savings-error"></p></div>
+                </div>
+                <div class="goal-result" aria-live="polite" aria-atomic="true">
+                  <p class="goal-gap">距离目标还差 <strong id="goal-gap">—</strong></p>
+                  <p id="goal-duration" class="goal-duration">填个目标，算算还要多久。</p>
+                  <p id="goal-days" class="goal-days"></p>
+                  <p id="goal-note" class="goal-note">按每月把结余全部存下估算，收入和开支保持不变。</p>
+                </div>
               </div>
             </details>
           </section>
@@ -58,11 +81,12 @@
         </div>
         <aside class="receipt" aria-labelledby="balance-title">
           <div class="receipt-top"><span>我的每月小结</span><span class="receipt-corner">¥ / MONTH</span></div>
-          <div class="balance-main" aria-live="polite" aria-atomic="true"><h2 id="balance-title">每月可以自由安排</h2><p class="balance-number"><span>¥</span><output id="balance">—</output></p><p id="balance-note" class="balance-note">填入到手月薪，看看你的生活余额。</p><p id="deficit" class="deficit" hidden></p></div>
+          <div class="balance-main" aria-live="polite" aria-atomic="true"><h2 id="balance-title">第二部分 · 每月可以自由安排</h2><p class="balance-number"><span>¥</span><output id="balance">—</output></p><p id="balance-note" class="balance-note">填入到手月薪，看看你的生活余额。</p><p id="deficit" class="deficit" hidden></p></div>
           <dl class="receipt-lines"><div><dt>到手月薪</dt><dd id="net-total">—</dd></div><div><dt>已填写的固定支出</dt><dd id="expense-total">¥0.00</dd></div></dl>
           <div id="allocation" class="allocation" hidden><div class="allocation-bar" role="img" id="allocation-bar"><span id="expense-bar"></span><span id="remaining-bar"></span></div><div class="allocation-key"><span>固定支出</span><span>自由安排</span></div></div>
-          <div class="daily-block"><div><span>平均每天可以安排</span><small>按每月 30 天平均</small></div><p><span>¥</span><output id="daily">—</output></p></div>
+          <div class="daily-block"><div><span>固定支出后，平均每天</span><small>按每月 30 天平均，尚未扣除第三部分</small></div><p><span>¥</span><output id="daily">—</output></p></div>
           <div class="retained-block"><span id="retained-label">扣除支出后，每小时留下</span><p><span>¥</span><output id="retained-hourly">—</output><small>/ 小时</small></p><small>按含通勤与午休的总时间计算</small></div>
+          <div class="savings-summary"><div class="living-deduction"><span>再减其他生活开支</span><strong id="living-total">− ¥0.00</strong></div><h3>第三部分 · 每月预计可存</h3><p class="savings-number"><span>¥</span><output id="monthly-savings">—</output></p><p id="savings-note" class="balance-note">先填收入，再按需补充生活开支。</p></div>
           <p class="receipt-footnote">按已填写支出计算，没填的项目不会扣除。<br>留多少、花多少，由你安排。</p>
         </aside>
       </div>

@@ -204,3 +204,72 @@ test('主动保存可恢复负债，关闭保存后删除', () => {
   persist(storage, {}, false);
   assert.equal(restore(storage), null);
 });
+
+test('第四部分验收：月结余5000，差额72000，2年内每月可花2000', () => {
+  const r = calculate({ net: '11000', expenses: expenses(4000), livingExpenses: expenses(2000), target: '80000', savings: '20000', debt: '12000', deadlineYears: '2' });
+  assert.equal(r.monthlySavingsCents, 500000);
+  assert.equal(r.goalGapCents, 7200000);
+  assert.equal(r.deadlineMonths, 24);
+  assert.equal(r.monthlyReserveCents, 300000);
+  assert.equal(r.freeSpendingCents, 200000);
+  assert.equal(formatMoney(r.freeDailyCents), '66.67');
+  assert.equal(r.monthlyShortfallCents, 0);
+  assert.equal(r.fullMonths, 15);
+});
+
+test('空期限不套用最快月数；0、负数、小数和超范围期限独立报错', () => {
+  const base = { net: '5000', target: '72000' };
+  const empty = calculate(base);
+  assert.equal(empty.deadlineEmpty, true);
+  assert.equal(empty.monthlyReserveCents, null);
+  assert.equal(empty.freeSpendingCents, null);
+  for (const deadline of [{ deadlineYears: '0' }, { deadlineMonths: '0' }, { deadlineYears: '-1' }, { deadlineYears: '1.5' }, { deadlineYears: '10000' }, { deadlineMonths: '12' }, { deadlineMonths: '1.2' }]) {
+    const r = calculate({ ...base, ...deadline });
+    assert.ok(r.errors.deadline || r.errors.deadlineYears || r.errors.deadlineMonths);
+    assert.equal(r.freeSpendingCents, null);
+    assert.equal(r.fullMonths, 15);
+  }
+  assert.equal(calculate({ ...base, deadlineMonths: '6' }).deadlineMonths, 6);
+  assert.equal(calculate({ ...base, deadlineYears: '1', deadlineMonths: '2' }).deadlineMonths, 14);
+});
+
+test('目标预留向上取整到分，缺口使用未截零的原始结余', () => {
+  const cents = calculate({ net: '1000', target: '1', deadlineMonths: '3' });
+  assert.equal(cents.monthlyReserveCents, 34);
+  assert.equal(cents.freeSpendingCents, 99966);
+  const short = calculate({ net: '1000', target: '24000', deadlineYears: '1' });
+  assert.equal(short.freeSpendingCents, 0);
+  assert.equal(short.freeDailyCents, 0);
+  assert.equal(short.monthlyShortfallCents, 100000);
+  const deficit = calculate({ net: '1000', expenses: expenses(1100), target: '2400', deadlineYears: '1' });
+  assert.equal(deficit.monthlyShortfallCents, 30000);
+  assert.equal(deficit.freeSpendingCents, 0);
+});
+
+test('目标达成无需期限、无需预留；空目标和仍有负债不误认为达成', () => {
+  const reached = calculate({ net: '5000', target: '10000', savings: '20000', debt: '10000' });
+  assert.equal(reached.monthlyReserveCents, 0);
+  assert.equal(reached.freeSpendingCents, 500000);
+  const invalidDeadline = calculate({ net: '5000', target: '0', deadlineMonths: '12' });
+  assert.ok(invalidDeadline.errors.deadlineMonths);
+  assert.equal(invalidDeadline.monthlyReserveCents, 0);
+  assert.equal(calculate({ net: '5000', target: '0', debt: '1000' }).monthlyReserveCents, null);
+  assert.equal(calculate({ net: '5000', deadlineYears: '2' }).freeSpendingCents, null);
+  assert.equal(calculate({ target: '0' }).freeSpendingCents, null);
+});
+
+test('期限随主动保存恢复，旧版本数据保留原值且不补默认期限', () => {
+  let value;
+  const storage = { getItem: () => value, setItem: (key, data) => { value = data; }, removeItem: () => { value = null; } };
+  persist(storage, { net: '12345', debt: '6789', deadlineYears: '2', deadlineMonths: '3' }, true);
+  const saved = restore(storage);
+  assert.equal(saved.deadlineYears, '2');
+  assert.equal(saved.deadlineMonths, '3');
+  assert.equal(saved.net, '12345');
+  value = JSON.stringify({ version: 1, remember: true, input: { net: '12345', debt: '6789' } });
+  assert.equal(restore(storage).deadlineYears, '');
+  assert.equal(restore(storage).deadlineMonths, '');
+  assert.equal(restore(storage).debt, '6789');
+  persist(storage, saved, false);
+  assert.equal(restore(storage), null);
+});

@@ -68,6 +68,23 @@ export function calculate(input = {}) {
   const fullMonths = savingMonths === null ? null : Math.ceil(savingMonths);
   // Integer cents and hundredths of a workday avoid rounding 7.000000000000001 to 8.
   const equivalentWorkDays = savingMonths === null || !timeValid ? null : goalReached ? 0 : Math.ceil(goalGapCents * Math.round(settings.days * 100) / (monthlySavingsCents * 100));
+  const deadlineEmpty = blank(input.deadlineYears) && blank(input.deadlineMonths);
+  const deadline = {};
+  for (const [key, label, max] of [['deadlineYears', '年数', 9999], ['deadlineMonths', '月数', 11]]) {
+    const raw = blank(input[key]) ? '0' : String(input[key]).trim();
+    if (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw)) || Number(raw) > max) {
+      errors[key] = `${label}请填 0–${max} 的整数`;
+    } else deadline[key] = Number(raw);
+  }
+  const deadlineFieldsValid = !errors.deadlineYears && !errors.deadlineMonths;
+  const totalDeadline = deadlineFieldsValid ? deadline.deadlineYears * 12 + deadline.deadlineMonths : null;
+  if (!deadlineEmpty && totalDeadline === 0) errors.deadline = '期限至少为 1 个月';
+  const deadlineMonths = !deadlineEmpty && deadlineFieldsValid && totalDeadline > 0 ? totalDeadline : null;
+  // All amounts stay in integer cents; reserve rounds up once, before subtraction.
+  const monthlyReserveCents = goalReached ? 0 : goalGapCents !== null && deadlineMonths !== null ? Math.ceil(goalGapCents / deadlineMonths) : null;
+  const spendingBalance = monthlySavingsCents !== null && monthlyReserveCents !== null ? monthlySavingsCents - monthlyReserveCents : null;
+  const freeSpendingCents = spendingBalance === null ? null : Math.max(0, spendingBalance);
+  const monthlyShortfallCents = spendingBalance === null ? null : Math.max(0, -spendingBalance);
   return {
     errors, settings, ready, timeValid, expenseValid, netCents,
     expenseCents: expenseValid ? expenseCents : null, filledExpenses,
@@ -81,6 +98,8 @@ export function calculate(input = {}) {
     monthlySavingsCents, livingDailyCents: monthlySavingsCents === null ? null : Math.max(0, monthlySavingsCents) / 30,
     goalGapCents, goalReached, savingMonths, fullMonths, equivalentWorkDays,
     debtCents: debt.error ? null : debt.value,
+    deadlineEmpty, deadlineMonths, monthlyReserveCents, freeSpendingCents, monthlyShortfallCents,
+    freeDailyCents: freeSpendingCents === null ? null : freeSpendingCents / 30,
   };
 }
 
@@ -102,7 +121,7 @@ export function restore(storage) {
     const data = JSON.parse(storage.getItem(STORAGE_KEY) || 'null');
     if (!data || data.version !== 1 || !data.remember || !data.input) return null;
     const clean = {};
-    for (const key of ['gross', 'net', 'days', 'hours', 'commute', 'lunch', 'target', 'savings', 'debt']) {
+    for (const key of ['gross', 'net', 'days', 'hours', 'commute', 'lunch', 'target', 'savings', 'debt', 'deadlineYears', 'deadlineMonths']) {
       clean[key] = typeof data.input[key] === 'string' ? data.input[key].slice(0, 32) : '';
     }
     clean.expenses = Array.isArray(data.input.expenses) ? data.input.expenses.slice(0, 30).map((item, i) => ({

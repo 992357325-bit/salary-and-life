@@ -1,9 +1,10 @@
 import { calculate, formatMoney, formatDuration, persist, restore, blank } from './calculate.mjs';
+import { SHARE_URL, copyShareLink } from './share.mjs';
 
 const $ = id => document.getElementById(id);
-const fieldKeys = ['gross', 'net', 'days', 'hours', 'commute', 'lunch', 'target', 'savings', 'debt'];
+const fieldKeys = ['gross', 'net', 'days', 'hours', 'commute', 'lunch', 'target', 'savings', 'debt', 'deadlineYears', 'deadlineMonths'];
 const initialExpenses = () => ['房租', '通勤', '水电', '其他 1', '其他 2', '其他 3'].map((name, i) => ({ id: `initial-${i}`, name, amount: '' }));
-const initialInput = () => ({ gross: '', net: '', days: '', hours: '', commute: '', lunch: '', target: '', savings: '', debt: '', expenses: initialExpenses(), livingExpenses: [{ id: 'living-initial-0', name: '伙食费', amount: '' }] });
+const initialInput = () => ({ ...Object.fromEntries(fieldKeys.map(key => [key, ''])), expenses: initialExpenses(), livingExpenses: [{ id: 'living-initial-0', name: '伙食费', amount: '' }] });
 const expenseGroups = { expenses: { rows: 'expense-rows', add: 'add-expense', prefix: 'expense' }, livingExpenses: { rows: 'living-rows', add: 'add-living', prefix: 'living' } };
 let input = initialInput();
 let storage = null;
@@ -59,9 +60,10 @@ function save() {
 
 function update(shouldSave = true) {
   const result = calculate(input);
-  for (const key of ['net', 'days', 'hours', 'commute', 'lunch', 'target', 'savings', 'debt']) {
+  for (const key of fieldKeys.filter(key => key !== 'gross')) {
     const hasTotalTimeError = ['hours', 'commute', 'lunch'].includes(key) && result.errors.totalTime;
-    $(key).setAttribute('aria-invalid', result.errors[key] || hasTotalTimeError ? 'true' : 'false');
+    const hasDeadlineError = ['deadlineYears', 'deadlineMonths'].includes(key) && result.errors.deadline;
+    $(key).setAttribute('aria-invalid', result.errors[key] || hasTotalTimeError || hasDeadlineError ? 'true' : 'false');
     $(`${key}-error`).textContent = result.errors[key] || '';
   }
   $('totalTime-error').textContent = result.errors.totalTime || '';
@@ -121,10 +123,26 @@ function update(shouldSave = true) {
     $('goal-duration').textContent = '当前没有可用于存钱的结余。';
     $('goal-note').textContent = result.monthlySavingsCents < 0 ? `当前每月缺口 ${yuan(-result.monthlySavingsCents)}，暂时无法估算达到目标的时间。` : '每月结余为零，暂时无法估算达到目标的时间。';
   } else {
-    $('goal-duration').textContent = `预计还需积累 ${formatDuration(result.fullMonths)}`;
+    $('goal-duration').textContent = `全部结余用于目标，最快约 ${formatDuration(result.fullMonths)}`;
     $('goal-days').textContent = result.equivalentWorkDays === null ? '修正第一部分的工作时间后，可折算工作天数。' : `折算约 ${result.equivalentWorkDays.toLocaleString('zh-CN')} 个工作日`;
     $('goal-note').textContent = hasDebt ? '按每月全部结余用于偿还负债和存钱估算，不计未来利息。先将总月数向上取整，再换算成年月；工作日为预算折算。' : '按月存入全部结余，月数向上取整，不计利息。工作日按当前收支折算，不代表实际到账时间。';
   }
+  $('deadline-error').textContent = result.errors.deadline || '';
+  $('monthly-reserve').textContent = yuan(result.monthlyReserveCents);
+  $('free-spending').textContent = formatMoney(result.freeSpendingCents);
+  $('free-daily').textContent = formatMoney(result.freeDailyCents);
+  $('spending-receipt').textContent = formatMoney(result.freeSpendingCents);
+  $('spending-shortfall').hidden = !(result.monthlyShortfallCents > 0);
+  $('spending-shortfall').textContent = result.monthlyShortfallCents > 0 ? `按这个计划，每月还差 ${yuan(result.monthlyShortfallCents)}。` : '';
+  let spendingNote;
+  if (result.goalReached) spendingNote = '目标已达成，无需继续预留；可花额度按当前每月结余计算。';
+  else if (result.goalGapCents === null) spendingNote = '先在第三部分填写有效的目标存款、已有存款与负债。';
+  else if (result.deadlineEmpty) spendingNote = '填入希望达到目标的期限，再算留给自己花的钱。';
+  else if (result.deadlineMonths === null) spendingNote = '请填写有效期限：年数为非负整数，月数为 0–11，合计至少 1 个月。';
+  else spendingNote = `目标差额 ${yuan(result.goalGapCents)} ÷ ${result.deadlineMonths} 个月，每月预留 ${yuan(result.monthlyReserveCents)}。`;
+  if (result.monthlySavingsCents === null) spendingNote += ' 请先补全收入并修正支出金额。';
+  $('spending-note').textContent = spendingNote;
+  $('spending-receipt-note').textContent = result.freeSpendingCents === null ? '设好目标和期限后显示。' : result.monthlyShortfallCents > 0 ? `每月还差 ${yuan(result.monthlyShortfallCents)}` : '已减去生活开支与每月目标预留。';
   for (const [group, config] of Object.entries(expenseGroups)) $(config.add).disabled = input[group].length >= 30;
   if (shouldSave) save();
 }
@@ -149,6 +167,15 @@ $('clear').addEventListener('click', () => {
   remember = false; $('remember').checked = false;
   fieldKeys.forEach(key => { $(key).value = ''; });
   renderExpenseRows(); update(); $('net').focus(); notice('已清空填写，工作时间恢复为 22 天 × 8 小时。');
+});
+$('share-url').value = SHARE_URL;
+$('copy-link').addEventListener('click', async () => {
+  let clipboard;
+  try { clipboard = navigator.clipboard; } catch { /* Manual copy remains available. */ }
+  const copied = await copyShareLink(clipboard);
+  $('copy-status').textContent = copied ? '链接已复制，发给朋友就能使用。' : '未能自动复制，请选中下方网址手动复制。';
+  $('copy-fallback').hidden = copied;
+  if (!copied) { $('share-url').focus(); $('share-url').select(); }
 });
 renderExpenseRows();
 if (saved) {

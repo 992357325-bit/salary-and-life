@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f4eee3">
-  <meta name="description" content="输入到手月薪，按 22 天、每天 8 小时算时薪。扣除固定支出和生活费，填入已有存款和目标，算算还要工作多久。">
+  <meta name="description" content="算算真实时薪、每月结余与目标期限，看看能留多少钱给自己花。个人数字只在本机计算，分享不带个人账本。">
   <title>工资与生活 · 算清时间，也留一点给自己</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
@@ -62,7 +62,7 @@
                 <div id="living-rows"></div>
                 <button id="add-living" class="add-button" type="button"><span aria-hidden="true">＋</span> 添加生活开支</button>
                 <p class="field-hint">伙食、日用品、娱乐等按月填写。已在第二部分填写的费用，不需要重复填写。</p>
-                <div class="living-subtotal"><span>扣完生活费，每月预计可存</span><strong id="living-subtotal">—</strong></div>
+                <div class="living-subtotal"><span>扣完生活费，每月结余</span><strong id="living-subtotal">—</strong></div>
                 <p id="living-subtotal-note" class="field-hint">第二部分月度余额 − 其他生活开支</p>
                 <div class="goal-fields">
                   <div class="field"><label for="target">目标总存款</label><div class="input-shell"><span aria-hidden="true">¥</span><input id="target" inputmode="decimal" autocomplete="off" placeholder="想攒到多少钱" maxlength="16" aria-describedby="target-error"><span>元</span></div><p class="error" id="target-error"></p></div>
@@ -79,6 +79,23 @@
               </div>
             </details>
           </section>
+          <section class="paper spending-paper" aria-labelledby="spending-title">
+            <div class="section-heading"><span class="section-number">04</span><div><h2 id="spending-title">留给自己花的钱</h2><p>为目标留一份，也给当下的生活留一份。</p></div></div>
+            <fieldset class="deadline-fields"><legend>希望多久达到第三部分的目标？</legend>
+              <div class="deadline-grid">
+                <div class="field"><label for="deadlineYears">年数</label><div class="input-shell"><input id="deadlineYears" inputmode="numeric" autocomplete="off" placeholder="几年" maxlength="4" aria-describedby="deadlineYears-error deadline-error deadline-hint"><span>年</span></div><p class="error" id="deadlineYears-error"></p></div>
+                <div class="field"><label for="deadlineMonths">月数</label><div class="input-shell"><input id="deadlineMonths" inputmode="numeric" autocomplete="off" placeholder="几个月" maxlength="2" aria-describedby="deadlineMonths-error deadline-error deadline-hint"><span>个月</span></div><p class="error" id="deadlineMonths-error"></p></div>
+              </div>
+              <p class="error" id="deadline-error" aria-live="polite"></p><p id="deadline-hint" class="field-hint">年数、月数可只填一项；月数填 0–11，合计至少 1 个月。目标已达成时无需填写。</p>
+            </fieldset>
+            <div class="spending-result" aria-live="polite" aria-atomic="true">
+              <div class="reserve-line"><span>每月为目标预留</span><strong id="monthly-reserve">—</strong></div>
+              <p class="spending-label">每月可以留给自己花</p><p class="spending-number"><span>¥</span><output id="free-spending">—</output></p>
+              <div class="spending-daily"><span>日均参考</span><strong>¥<output id="free-daily">—</output></strong><small>按每月 30 天平均</small></div>
+              <p id="spending-shortfall" class="deficit" hidden></p><p id="spending-note" class="goal-note">填入目标和期限，看看每月可以留多少给自己。</p>
+            </div>
+            <p class="field-hint">每月结余 − 每月目标预留 = 可花额度。按已填收支不变估算，未填费用不会扣除；日均仅作参考，以每月额度为准。</p>
+          </section>
           <div class="privacy-controls"><label class="remember-label" for="remember"><input id="remember" type="checkbox"><span>在本机记住</span></label><button id="clear" type="button" class="text-button">清空填写</button><p id="storage-note">默认不保存。开启后仅保存在当前浏览器。</p></div>
         </div>
         <aside class="receipt" aria-labelledby="balance-title">
@@ -88,10 +105,20 @@
           <div id="allocation" class="allocation" hidden><div class="allocation-bar" role="img" id="allocation-bar"><span id="expense-bar"></span><span id="remaining-bar"></span></div><div class="allocation-key"><span>固定支出</span><span>自由安排</span></div></div>
           <div class="daily-block"><div><span>固定支出后，平均每天</span><small>按每月 30 天平均，尚未扣除第三部分</small></div><p><span>¥</span><output id="daily">—</output></p></div>
           <div class="retained-block"><span id="retained-label">扣除支出后，每小时留下</span><p><span>¥</span><output id="retained-hourly">—</output><small>/ 小时</small></p><small>按含通勤与午休的总时间计算</small></div>
-          <div class="savings-summary"><div class="living-deduction"><span>再减其他生活开支</span><strong id="living-total">− ¥0.00</strong></div><h3>第三部分 · 每月预计可存</h3><p class="savings-number"><span>¥</span><output id="monthly-savings">—</output></p><p id="savings-note" class="balance-note">先填收入，再按需补充生活开支。</p></div>
+          <div class="savings-summary"><div class="living-deduction"><span>再减其他生活开支</span><strong id="living-total">− ¥0.00</strong></div><h3>第三部分 · 每月结余</h3><p class="savings-number"><span>¥</span><output id="monthly-savings">—</output></p><p id="savings-note" class="balance-note">先填收入，再按需补充生活开支。</p></div>
+          <div class="savings-summary spending-summary" aria-live="polite"><h3>第四部分 · 每月留给自己花</h3><p class="savings-number"><span>¥</span><output id="spending-receipt">—</output></p><p id="spending-receipt-note" class="balance-note">设好目标和期限后显示。</p></div>
           <p class="receipt-footnote">按已填写支出计算，没填的项目不会扣除。<br>留多少、花多少，由你安排。</p>
         </aside>
       </div>
+      <section class="share-paper" aria-labelledby="share-title">
+        <div class="share-copy"><p class="eyebrow">把这本小账本，递给朋友</p><h2 id="share-title">觉得有用，就发给也想算算的朋友。</h2><p class="share-privacy">分享内容不包含你填写的工资、支出、存款或负债。</p>
+          <div class="share-actions"><button id="copy-link" type="button" class="share-button">复制链接</button><a class="share-button secondary-button" href="./share-card.png" download="工资与生活-分享图.png">保存分享图</a></div>
+          <p id="copy-status" class="field-hint" role="status" aria-live="polite"></p>
+          <div id="copy-fallback" hidden><label for="share-url">手动复制首页网址</label><input id="share-url" type="text" readonly spellcheck="false" aria-label="手动复制首页网址"></div>
+          <p class="share-note">朋友打开的是自己的空白账本。若曾在当前浏览器主动保存，只会恢复自己的填写。</p>
+        </div>
+        <figure class="share-qr"><img src="./share-qr.png" width="180" height="180" alt="工资与生活首页二维码，扫码直接打开计算器"><figcaption>扫一扫，算算自己的生活</figcaption></figure>
+      </section>
     </main>
     <footer><span>工资属于账本，生活属于你。</span><div><span>个人数字仅在本机计算</span><a href="https://github.com/992357325-bit/salary-and-life" target="_blank" rel="noopener noreferrer">开源代码 <span aria-hidden="true">↗</span></a></div></footer>
   </div>

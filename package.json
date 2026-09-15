@@ -1,0 +1,12 @@
+{
+  "name": "salary-and-life",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A local-first salary, time, and living-cost calculator.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "start": "node scripts/serve.mjs"
+  },
+  "license": "MIT"
+}

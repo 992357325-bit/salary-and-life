@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4eee3">
+  <meta name="description" content="输入到手月薪，立即按 22 天、每天 8 小时算时薪。自由调整工作、通勤和午休时间，扣除房租等支出，看看每月还能安排多少钱。">
+  <title>工资与生活 · 算清时间，也留一点给自己</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <script type="module" src="./app.mjs"></script>
+</head>
+<body>
+  <a class="skip-link" href="#net">跳到到手月薪</a>
+  <div class="page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="工资与生活首页"><span class="brand-mark" aria-hidden="true">¥</span><span>工资与生活<small>SALARY & LIFE</small></span></a>
+      <span class="header-note">一本关于钱与时间的小账本</span>
+    </header>
+    <main>
+      <div class="intro"><div><p class="eyebrow">给自己的生活，算一笔账</p><h1>挣多少，也看看能留下多少。</h1></div><span class="unit-note">人民币 / 每月</span></div>
+      <div class="workspace">
+        <div class="inputs-column">
+          <section class="paper income-paper" aria-labelledby="income-title">
+            <div class="section-heading"><span class="section-number">01</span><div><h2 id="income-title">我的收入与时间</h2><p>先填到手月薪，就能算出每小时收入。</p></div></div>
+            <div class="salary-fields">
+              <div class="field net-field"><label for="net">到手月薪 <span>实际收到的钱</span></label><div class="input-shell money-input"><span aria-hidden="true">¥</span><input id="net" name="net" inputmode="decimal" autocomplete="off" placeholder="输入到手月薪" maxlength="16" aria-describedby="net-error"><span>元 / 月</span></div><p class="error" id="net-error"></p></div>
+              <div class="field gross-field"><label for="gross">薪资 <span>选填，仅作记录</span></label><div class="input-shell"><span aria-hidden="true">¥</span><input id="gross" name="gross" inputmode="decimal" autocomplete="off" placeholder="税前薪资" maxlength="16"><span>元</span></div></div>
+            </div>
+            <details id="time-details" class="time-details">
+              <summary><div><span class="summary-label">每月工作时间</span><span id="time-summary" class="time-summary">22 天 × 8 小时</span></div><span class="edit-label">调整时间 <span class="chevron" aria-hidden="true"></span></span></summary>
+              <div class="time-grid">
+                <div class="field"><label for="days">每月工作天数</label><div class="input-shell"><input id="days" inputmode="decimal" placeholder="22" maxlength="6" aria-describedby="days-hint days-error"><span>天 / 月</span></div><p class="field-hint" id="days-hint">未填写时按 22 天</p><p class="error" id="days-error"></p></div>
+                <div class="field"><label for="hours">每天工作时长</label><div class="input-shell"><input id="hours" inputmode="decimal" placeholder="8" maxlength="6" aria-describedby="hours-hint hours-error totalTime-error"><span>小时 / 天</span></div><p class="field-hint" id="hours-hint">不含午休，未填写时按 8 小时</p><p class="error" id="hours-error"></p></div>
+                <div class="field"><label for="commute">每天往返通勤</label><div class="input-shell"><input id="commute" inputmode="decimal" placeholder="0" maxlength="7" aria-describedby="commute-unit commute-error totalTime-error"><span id="commute-unit">分钟 / 天</span></div><p class="error" id="commute-error"></p></div>
+                <div class="field"><label for="lunch">每天午休时长</label><div class="input-shell"><input id="lunch" inputmode="decimal" placeholder="0" maxlength="7" aria-describedby="lunch-unit lunch-error totalTime-error"><span id="lunch-unit">分钟 / 天</span></div><p class="error" id="lunch-error"></p></div>
+              </div>
+              <p class="field-hint time-note">午休和往返通勤另外计入工作占用的时间。</p>
+              <p class="error" id="totalTime-error" aria-live="polite"></p>
+            </details>
+            <div class="hourly-results" aria-live="polite" aria-atomic="true">
+              <div><span class="result-label">每小时收入</span><p class="hourly-number"><span class="currency">¥</span><output id="hourly">—</output><span class="result-unit">/ 小时</span></p><p id="work-formula" class="formula">到手月薪 ÷ 22 天 ÷ 8 小时</p></div>
+              <div class="occupied-result"><span class="result-label">算上通勤与午休后</span><p class="hourly-number secondary"><span class="currency">¥</span><output id="occupied-hourly">—</output><span class="result-unit">/ 小时</span></p><p id="occupied-formula" class="formula">每月共占用 176 小时</p></div>
+            </div>
+          </section>
+          <section class="paper expenses-paper" aria-labelledby="expenses-title">
+            <details id="expense-details">
+              <summary class="section-heading"><span class="section-number">02</span><div><h2 id="expenses-title">每月固定支出 <span class="optional">选填</span></h2><p>房租、水电、通勤……填多少，就扣多少。</p></div><span class="chevron" aria-hidden="true"></span></summary>
+              <div class="expenses-content">
+                <div class="expense-table-head" aria-hidden="true"><span>支出项目</span><span>每月金额</span></div>
+                <div id="expense-rows"></div>
+                <button id="add-expense" class="add-button" type="button"><span aria-hidden="true">＋</span> 添加一项支出</button>
+                <p class="field-hint">所有支出按月填写。想预留餐费、存款，也可以自己添加。</p>
+              </div>
+            </details>
+          </section>
+          <div class="privacy-controls"><label class="remember-label" for="remember"><input id="remember" type="checkbox"><span>在本机记住</span></label><button id="clear" type="button" class="text-button">清空填写</button><p id="storage-note">默认不保存。开启后仅保存在当前浏览器。</p></div>
+        </div>
+        <aside class="receipt" aria-labelledby="balance-title">
+          <div class="receipt-top"><span>我的每月小结</span><span class="receipt-corner">¥ / MONTH</span></div>
+          <div class="balance-main" aria-live="polite" aria-atomic="true"><h2 id="balance-title">每月可以自由安排</h2><p class="balance-number"><span>¥</span><output id="balance">—</output></p><p id="balance-note" class="balance-note">填入到手月薪，看看你的生活余额。</p><p id="deficit" class="deficit" hidden></p></div>
+          <dl class="receipt-lines"><div><dt>到手月薪</dt><dd id="net-total">—</dd></div><div><dt>已填写的固定支出</dt><dd id="expense-total">¥0.00</dd></div></dl>
+          <div id="allocation" class="allocation" hidden><div class="allocation-bar" role="img" id="allocation-bar"><span id="expense-bar"></span><span id="remaining-bar"></span></div><div class="allocation-key"><span>固定支出</span><span>自由安排</span></div></div>
+          <div class="daily-block"><div><span>平均每天可以安排</span><small>按每月 30 天平均</small></div><p><span>¥</span><output id="daily">—</output></p></div>
+          <div class="retained-block"><span id="retained-label">扣除支出后，每小时留下</span><p><span>¥</span><output id="retained-hourly">—</output><small>/ 小时</small></p><small>按含通勤与午休的总时间计算</small></div>
+          <p class="receipt-footnote">按已填写支出计算，没填的项目不会扣除。<br>留多少、花多少，由你安排。</p>
+        </aside>
+      </div>
+    </main>
+    <footer><span>工资属于账本，生活属于你。</span><div><span>个人数字仅在本机计算</span><a href="https://github.com/992357325-bit/salary-and-life" target="_blank" rel="noopener noreferrer">开源代码 <span aria-hidden="true">↗</span></a></div></footer>
+  </div>
+  <div id="notice" class="notice" role="status" aria-live="polite"></div>
+  <noscript><p class="noscript">这个计算器需要启用 JavaScript，所有数字都在你的浏览器里计算。</p></noscript>
+</body>
+</html>

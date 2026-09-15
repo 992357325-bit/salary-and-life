@@ -67,9 +67,11 @@
                 <div class="goal-fields">
                   <div class="field"><label for="target">目标总存款</label><div class="input-shell"><span aria-hidden="true">¥</span><input id="target" inputmode="decimal" autocomplete="off" placeholder="想攒到多少钱" maxlength="16" aria-describedby="target-error"><span>元</span></div><p class="error" id="target-error"></p></div>
                   <div class="field"><label for="savings">已有存款 <span>选填，默认 0 元</span></label><div class="input-shell"><span aria-hidden="true">¥</span><input id="savings" inputmode="decimal" autocomplete="off" placeholder="现在已经存下的" maxlength="16" aria-describedby="savings-error"><span>元</span></div><p class="error" id="savings-error"></p></div>
+                  <div class="field debt-field"><label for="debt">剩余负债总额 <span>选填，默认 0 元</span></label><div class="input-shell"><span aria-hidden="true">¥</span><input id="debt" inputmode="decimal" autocomplete="off" placeholder="房贷、车贷、信用卡等剩余欠款合计" maxlength="16" aria-describedby="debt-hint debt-error"><span>元</span></div><p class="field-hint" id="debt-hint">填尚未还清的欠款总额。计入这里的欠款，不再重复计入每月支出；未来利息暂不计算。</p><p class="error" id="debt-error"></p></div>
                 </div>
                 <div class="goal-result" aria-live="polite" aria-atomic="true">
-                  <p class="goal-gap">距离目标还差 <strong id="goal-gap">—</strong></p>
+                  <p class="goal-gap"><span id="goal-gap-label">距离目标还差</span> <strong id="goal-gap">—</strong></p>
+                  <p id="goal-breakdown" class="goal-breakdown" hidden></p>
                   <p id="goal-duration" class="goal-duration">填个目标，算算还要多久。</p>
                   <p id="goal-days" class="goal-days"></p>
                   <p id="goal-note" class="goal-note">按每月把结余全部存下估算，收入和开支保持不变。</p>

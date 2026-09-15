@@ -1,7 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { calculate, formatMoney, persist, restore, STORAGE_KEY } from '../dist/calculate.mjs';
+import { calculate, formatMoney, formatDuration, persist, restore, STORAGE_KEY } from '../dist/calculate.mjs';
 const expenses = (...amounts) => amounts.map((amount, id) => ({ id: String(id), name: `支出 ${id}`, amount: String(amount) }));
+
+test('整月期限转换为几年几个月，整年保留零个月', () => {
+  assert.equal(formatDuration(40), '3 年 4 个月');
+  assert.equal(formatDuration(12), '1 年 0 个月');
+  assert.equal(formatDuration(11), '11 个月');
+  assert.equal(formatDuration(13), '1 年 1 个月');
+  assert.equal(formatDuration(0), '0 个月');
+  assert.equal(formatDuration(null), '—');
+  assert.equal(formatDuration(-1), '—');
+});
 
 test('只填到手工资，默认22天8小时；税前薪资不影响结果', () => {
   const a = calculate({ net: '10000' });
@@ -151,4 +161,46 @@ test('本地保存含生活费、目标和已有存款；旧数据可继续读�
   assert.equal(restore(storage).net, '10000');
   assert.equal(restore(storage).livingExpenses[0].name, '伙食费');
   assert.equal(restore(storage).target, '');
+  assert.equal(restore(storage).debt, '');
+});
+
+test('负债计入待积累金额，不再次扣月结余；期限显示年月', () => {
+  const a = calculate({ net: '10000', expenses: expenses(3000), livingExpenses: expenses(2000), target: '100000', savings: '20000', debt: '120000' });
+  assert.equal(a.monthlySavingsCents, 500000);
+  assert.equal(a.debtCents, 12000000);
+  assert.equal(a.goalGapCents, 20000000);
+  assert.equal(a.fullMonths, 40);
+  assert.equal(formatDuration(a.fullMonths), '3 年 4 个月');
+});
+
+test('已有存款同时抵消目标与负债，不能先截零再加债务', () => {
+  const a = calculate({ net: '5000', target: '10000', savings: '15000', debt: '8000' });
+  assert.equal(a.goalGapCents, 300000);
+  assert.equal(a.fullMonths, 1);
+  const reached = calculate({ net: '0', target: '10000', savings: '18000', debt: '8000' });
+  assert.equal(reached.goalReached, true);
+  assert.equal(reached.fullMonths, 0);
+  assert.equal(calculate({ net: '2000', target: '0', debt: '6000' }).fullMonths, 3);
+});
+
+test('负债空白为零；负债非法不影响月预算；无结余仍不生成期限', () => {
+  assert.equal(calculate({ net: '5000', target: '10000', debt: '' }).fullMonths, 2);
+  for (const debt of ['-1', 'abc', '1.001']) {
+    const a = calculate({ net: '5000', target: '10000', debt });
+    assert.ok(a.errors.debt);
+    assert.equal(a.goalGapCents, null);
+    assert.equal(a.monthlySavingsCents, 500000);
+  }
+  assert.equal(calculate({ net: '0', target: '0', debt: '1000' }).fullMonths, null);
+  const rounded = calculate({ net: '100', target: '1200.01' });
+  assert.equal(formatDuration(rounded.fullMonths), '1 年 1 个月');
+});
+
+test('主动保存可恢复负债，关闭保存后删除', () => {
+  let value;
+  const storage = { getItem: () => value, setItem: (key, data) => { value = data; }, removeItem: () => { value = null; } };
+  persist(storage, { net: '5000', target: '10000', debt: '8000' }, true);
+  assert.equal(restore(storage).debt, '8000');
+  persist(storage, {}, false);
+  assert.equal(restore(storage), null);
 });

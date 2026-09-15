@@ -1,9 +1,9 @@
-import { calculate, formatMoney, persist, restore, blank } from './calculate.mjs';
+import { calculate, formatMoney, formatDuration, persist, restore, blank } from './calculate.mjs';
 
 const $ = id => document.getElementById(id);
-const fieldKeys = ['gross', 'net', 'days', 'hours', 'commute', 'lunch', 'target', 'savings'];
+const fieldKeys = ['gross', 'net', 'days', 'hours', 'commute', 'lunch', 'target', 'savings', 'debt'];
 const initialExpenses = () => ['房租', '通勤', '水电', '其他 1', '其他 2', '其他 3'].map((name, i) => ({ id: `initial-${i}`, name, amount: '' }));
-const initialInput = () => ({ gross: '', net: '', days: '', hours: '', commute: '', lunch: '', target: '', savings: '', expenses: initialExpenses(), livingExpenses: [{ id: 'living-initial-0', name: '伙食费', amount: '' }] });
+const initialInput = () => ({ gross: '', net: '', days: '', hours: '', commute: '', lunch: '', target: '', savings: '', debt: '', expenses: initialExpenses(), livingExpenses: [{ id: 'living-initial-0', name: '伙食费', amount: '' }] });
 const expenseGroups = { expenses: { rows: 'expense-rows', add: 'add-expense', prefix: 'expense' }, livingExpenses: { rows: 'living-rows', add: 'add-living', prefix: 'living' } };
 let input = initialInput();
 let storage = null;
@@ -59,7 +59,7 @@ function save() {
 
 function update(shouldSave = true) {
   const result = calculate(input);
-  for (const key of ['net', 'days', 'hours', 'commute', 'lunch', 'target', 'savings']) {
+  for (const key of ['net', 'days', 'hours', 'commute', 'lunch', 'target', 'savings', 'debt']) {
     const hasTotalTimeError = ['hours', 'commute', 'lunch'].includes(key) && result.errors.totalTime;
     $(key).setAttribute('aria-invalid', result.errors[key] || hasTotalTimeError ? 'true' : 'false');
     $(`${key}-error`).textContent = result.errors[key] || '';
@@ -101,24 +101,29 @@ function update(shouldSave = true) {
   $('savings-note').textContent = result.monthlySavingsCents === null ? '请填写到手收入，并检查两部分的开支金额。' : result.monthlySavingsCents < 0 ? `全部支出后，每月缺口 ${yuan(-result.monthlySavingsCents)}` : '第二部分月度余额 − 第三部分生活开支';
   $('living-subtotal-note').textContent = result.monthlySavingsCents === null ? '先填写到手收入，再按需补充支出。' : `${yuan(result.balanceCents)} − ${yuan(result.livingExpenseCents)} = ${yuan(result.monthlySavingsCents)}`;
   $('goal-gap').textContent = yuan(result.goalGapCents);
+  const hasDebt = result.debtCents !== null && result.debtCents > 0;
+  $('goal-gap-label').textContent = hasDebt ? '还清负债并达到存款目标，还需' : '距离目标还差';
+  $('goal-breakdown').hidden = !hasDebt;
+  $('goal-breakdown').textContent = hasDebt ? `目标存款 + 负债 ${yuan(result.debtCents)} − 已有存款` : '';
   $('goal-days').textContent = '';
   $('goal-note').textContent = '按每月把结余全部存下估算，收入和开支保持不变。';
-  if (result.errors.target || result.errors.savings) {
-    $('goal-duration').textContent = '请修正存款金额。';
+  if (result.errors.target || result.errors.savings || result.errors.debt) {
+    $('goal-duration').textContent = '请修正存款或负债金额。';
   } else if (result.goalGapCents === null) {
-    $('goal-duration').textContent = '填个目标，算算还要多久。';
+    $('goal-duration').textContent = hasDebt ? '填入目标存款，算算还要多久。' : '填个目标，算算还要多久。';
+    if (hasDebt) $('goal-note').textContent = '如果只想算还清负债需要多久，目标总存款可以填 0 元。';
   } else if (result.goalReached) {
-    $('goal-duration').textContent = '已经达到目标。';
-    $('goal-note').textContent = '已有存款已达到目标，无需再为这个目标积累。';
+    $('goal-duration').textContent = hasDebt ? '已有存款足以还清负债并保有目标存款。' : '已经达到目标。';
+    $('goal-note').textContent = hasDebt ? '当前存款已覆盖目标存款与全部已填负债。' : '已有存款已达到目标，无需再为这个目标积累。';
   } else if (result.monthlySavingsCents === null) {
     $('goal-duration').textContent = '先补全收入与支出。';
   } else if (result.monthlySavingsCents <= 0) {
     $('goal-duration').textContent = '当前没有可用于存钱的结余。';
     $('goal-note').textContent = result.monthlySavingsCents < 0 ? `当前每月缺口 ${yuan(-result.monthlySavingsCents)}，暂时无法估算达到目标的时间。` : '每月结余为零，暂时无法估算达到目标的时间。';
   } else {
-    $('goal-duration').textContent = `预计还需积累 ${result.fullMonths.toLocaleString('zh-CN')} 个月`;
+    $('goal-duration').textContent = `预计还需积累 ${formatDuration(result.fullMonths)}`;
     $('goal-days').textContent = result.equivalentWorkDays === null ? '修正第一部分的工作时间后，可折算工作天数。' : `折算约 ${result.equivalentWorkDays.toLocaleString('zh-CN')} 个工作日`;
-    $('goal-note').textContent = '按月存入全部结余，月数向上取整，不计利息。工作日按当前收支折算，不代表实际到账时间。';
+    $('goal-note').textContent = hasDebt ? '按每月全部结余用于偿还负债和存钱估算，不计未来利息。先将总月数向上取整，再换算成年月；工作日为预算折算。' : '按月存入全部结余，月数向上取整，不计利息。工作日按当前收支折算，不代表实际到账时间。';
   }
   for (const [group, config] of Object.entries(expenseGroups)) $(config.add).disabled = input[group].length >= 30;
   if (shouldSave) save();

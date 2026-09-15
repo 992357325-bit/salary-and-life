@@ -45,8 +45,10 @@ export function calculate(input = {}) {
   const filledExpenses = fixed.filled;
   const target = decimal(input.target, { label: '目标总存款', max: 999999999, money: true });
   const savings = decimal(input.savings, { label: '已有存款', fallback: 0, max: 999999999, money: true });
+  const debt = decimal(input.debt, { label: '剩余负债总额', fallback: 0, max: 999999999, money: true });
   if (target.error) errors.target = target.error;
   if (savings.error) errors.savings = savings.error;
+  if (debt.error) errors.debt = debt.error;
   const dailyOccupied = settings.hours + (settings.commute + settings.lunch) / 60;
   if (dailyOccupied > 24 && !['hours', 'commute', 'lunch'].some(key => errors[key])) {
     errors.totalTime = '工作、午休和往返通勤合计不能超过每天 24 小时';
@@ -60,7 +62,7 @@ export function calculate(input = {}) {
   const occupiedHours = timeValid ? settings.days * dailyOccupied : null;
   const balanceCents = ready && expenseValid ? netCents - expenseCents : null;
   const monthlySavingsCents = balanceCents !== null && livingValid ? balanceCents - living.cents : null;
-  const goalGapCents = !target.error && !savings.error && target.value !== null ? Math.max(0, target.value - savings.value) : null;
+  const goalGapCents = !target.error && !savings.error && !debt.error && target.value !== null ? Math.max(0, target.value + debt.value - savings.value) : null;
   const goalReached = goalGapCents === 0;
   const savingMonths = goalReached ? 0 : goalGapCents !== null && monthlySavingsCents > 0 ? goalGapCents / monthlySavingsCents : null;
   const fullMonths = savingMonths === null ? null : Math.ceil(savingMonths);
@@ -78,6 +80,7 @@ export function calculate(input = {}) {
     livingValid, livingExpenseCents: livingValid ? living.cents : null, filledLivingExpenses: living.filled,
     monthlySavingsCents, livingDailyCents: monthlySavingsCents === null ? null : Math.max(0, monthlySavingsCents) / 30,
     goalGapCents, goalReached, savingMonths, fullMonths, equivalentWorkDays,
+    debtCents: debt.error ? null : debt.value,
   };
 }
 
@@ -86,12 +89,20 @@ export function formatMoney(cents) {
   return (cents / 100).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+export function formatDuration(months) {
+  if (!Number.isSafeInteger(months) || months < 0) return '—';
+  const years = Math.floor(months / 12);
+  const remainder = months % 12;
+  if (!years) return `${remainder} 个月`;
+  return `${years.toLocaleString('zh-CN')} 年 ${remainder} 个月`;
+}
+
 export function restore(storage) {
   try {
     const data = JSON.parse(storage.getItem(STORAGE_KEY) || 'null');
     if (!data || data.version !== 1 || !data.remember || !data.input) return null;
     const clean = {};
-    for (const key of ['gross', 'net', 'days', 'hours', 'commute', 'lunch', 'target', 'savings']) {
+    for (const key of ['gross', 'net', 'days', 'hours', 'commute', 'lunch', 'target', 'savings', 'debt']) {
       clean[key] = typeof data.input[key] === 'string' ? data.input[key].slice(0, 32) : '';
     }
     clean.expenses = Array.isArray(data.input.expenses) ? data.input.expenses.slice(0, 30).map((item, i) => ({
